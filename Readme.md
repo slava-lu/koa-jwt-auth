@@ -1,4 +1,4 @@
-# Авторизация по JWT для http и websockets
+# Авторизация по JWT для http и WebSockets в Node.js
 
 
 ### Использование:
