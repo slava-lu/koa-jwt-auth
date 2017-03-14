@@ -1,34 +1,48 @@
-//Пример приложения для регистрации пользователя, генерации токена, авторизации по токену через http и websocket
+const Koa = require('koa'); // ядро
+const Router = require('koa-router'); // маршрутизация
+const bodyParser = require('koa-bodyparser'); // парсер для POST запросов
+const serve = require('koa-static'); // модуль, который отдает статические файлы типа index.html из заданной директории
+const logger = require('koa-logger'); // опциональный модуль для логов сетевых запросов. Полезен при разработке.
 
-const Koa = require('koa');
-const Router = require('koa-router');
-const bodyParser = require('koa-bodyparser');
-const crypto = require('crypto');
-const logger = require('koa-logger')
-const jwt = require('jsonwebtoken');
-const passport = require('koa-passport');
-const LocalStrategy = require('passport-local');
-const mongoose = require('mongoose');
-const serve = require('koa-static');
+const passport = require('koa-passport'); //реализация passport для Koa
+const LocalStrategy = require('passport-local'); //локальная стратегия авторизации
+const JwtStrategy = require('passport-jwt').Strategy; // авторизация через JWT
+const ExtractJwt = require('passport-jwt').ExtractJwt; // авторизация через JWT
+
+const jwtsecret = "mysecretkey"; // ключ для подписи JWT
+const jwt = require('jsonwebtoken'); // авторизацию по JWT для hhtp
+const socketioJwt = require('socketio-jwt'); // авторизация по JWT для socket.io
+
 const socketIO = require('socket.io');
-const JwtStrategy = require('passport-jwt').Strategy;
-const ExtractJwt = require('passport-jwt').ExtractJwt;
-const socketioJwt = require('socketio-jwt');
 
-const jwtsecret = "mysecretkey"; // ключ для подписи токена
-
-mongoose.Promise = Promise;
-const beautifyUnique = require('mongoose-beautiful-unique-validation');
-mongoose.set('debug', true);
+const mongoose = require('mongoose'); // стандартная прослойка для работы с MongoDB
+const crypto = require('crypto'); // модуль node.js для выполнения различных шифровальных операций, в т.ч для создания хэшей.
 
 const app = new Koa();
 const router = new Router();
+app.use(serve('public'));
+app.use(logger());
+app.use(bodyParser());
 
-mongoose.connect('mongodb://localhost/test');
+app.use(passport.initialize()); // сначала паспорт
+app.use(router.routes()); // потом маршруты
+const server = app.listen(3000);// запускаем сервер на порту 3000
+
+mongoose.Promise = Promise; // Просим mongoose использовать стандартные Промисы
+mongoose.set('debug', true);  // Просим mongoose писать все запросы к базе в консоль. Удобно для отладки кода
+mongoose.connect('mongodb://localhost/test'); // Подключаемся к базе test на локальной машине.
 mongoose.connection.on('error', console.error);
 
+//---Магия с серилизацией
 
-//---------User management-------------------//
+passport.serializeUser(function (user, done) {
+  done(null, user.email);
+});
+passport.deserializeUser(function (email, done) {
+  User.find({email: email}, done); // callback version checks id validity automatically
+});
+
+//---------Схема и модель пользователя------------------//
 
 const userSchema = new mongoose.Schema({
   displayName: String,
@@ -45,41 +59,29 @@ const userSchema = new mongoose.Schema({
 
 userSchema.virtual('password')
 .set(function (password) {
-  
   this._plainPassword = password;
-  
   if (password) {
     this.salt = crypto.randomBytes(128).toString('base64');
     this.passwordHash = crypto.pbkdf2Sync(password, this.salt, 1, 128, 'sha1');
   } else {
-    // remove password (unable to login w/ password any more, but can use providers)
     this.salt = undefined;
     this.passwordHash = undefined;
   }
 })
+
 .get(function () {
   return this._plainPassword;
 });
 
 userSchema.methods.checkPassword = function (password) {
-  if (!password) return false; // empty password means no login by password
-  if (!this.passwordHash) return false; // this user does not have password (the line below would hang!)
-  
+  if (!password) return false;
+  if (!this.passwordHash) return false;
   return crypto.pbkdf2Sync(password, this.salt, 1, 128, 'sha1') == this.passwordHash;
 };
 
 const User = mongoose.model('User', userSchema);
 
-
-passport.serializeUser(function (user, done) {
-  done(null, user.email);
-});
-
-passport.deserializeUser(function (email, done) {
-  User.find({email: email}, done); // callback version checks id validity automatically
-});
-
-//----------Passport Local Strategies--------------//
+//----------Passport Local Strategy--------------//
 
 passport.use(new LocalStrategy({
     usernameField: 'email',
@@ -93,7 +95,6 @@ passport.use(new LocalStrategy({
       }
       
       if (!user || !user.checkPassword(password)) {
-        // don't say whether the user exists
         return done(null, false, {message: 'Нет такого пользователя или пароль неверен.'});
       }
       return done(null, user);
@@ -102,7 +103,10 @@ passport.use(new LocalStrategy({
   )
 );
 
-//----------Passport JWT Strataegy--------//
+//----------Passport JWT Strategy--------//
+
+// Ждем JWT в Header
+
 const jwtOptions = {
   jwtFromRequest: ExtractJwt.fromAuthHeader(),
   secretOrKey: jwtsecret
@@ -116,61 +120,14 @@ passport.use(new JwtStrategy(jwtOptions, function (payload, done) {
       }
       if (user) {
         done(null, user)
-      } else
-      {
-         done(null, false)
+      } else {
+        done(null, false)
       }
     })
   })
 );
 
-
 //------------Routing---------------//
-
-
-// маршрут для авторизации по токену
-
-router.get('/login', async(ctx, next) => {
-  
-  await passport.authenticate('jwt', function(user) {
-    if (user) {
-      ctx.body = "hello " + user.displayName
-      return ctx.login(user);
-      
-    } else {
-      ctx.body = "No such user";
-    }
-  } )(ctx, next)
-  
-});
-
-//маршрут для локальной авторизации и создания токена при успешной авторизации
-
-router.post('/login', async(ctx, next) => {
-  
-  await passport.authenticate('local', function (user) {
-    
-    if (user == false) {
-      ctx.body = "fail"
-      ctx.logout()
-    } else {
-      
-      //--payload - информация которую мы храним в токене и можем из него получать
-      
-      const payload = {
-        id: user.id,
-        name: user.displayName,
-        email: user.email
-      }
-      const token = jwt.sign(payload, jwtsecret)
-      
-      ctx.body = {user: user.displayName, token: 'JWT ' + token}
-      return ctx.login(user);
-    }
-  })(ctx, next);
-  
-});
-
 
 //маршрут для создания нового пользователя
 
@@ -184,12 +141,40 @@ router.post('/user', async(ctx, next) => {
   }
 });
 
-app.use(serve('public'));
-app.use(logger())
-app.use(bodyParser());
-app.use(passport.initialize());
-app.use(router.routes());
-const server = app.listen(3000);
+//маршрут для локальной авторизации и создания JWT при успешной авторизации
+
+router.post('/login', async(ctx, next) => {
+  await passport.authenticate('local', function (user) {
+    if (user == false) {
+      ctx.body = "Login failed";
+    } else {
+      //--payload - информация которую мы храним в токене и можем из него получать
+      const payload = {
+        id: user.id,
+        displayName: user.displayName,
+        email: user.email
+      };
+      const token = jwt.sign(payload, jwtsecret); //здесь создается JWT
+      
+      ctx.body = {user: user.displayName, token: 'JWT ' + token};
+    }
+  })(ctx, next);
+  
+});
+
+// маршрут для авторизации по токену
+
+router.get('/login', async(ctx, next) => {
+  
+  await passport.authenticate('jwt', function (user) {
+    if (user) {
+      ctx.body = "hello " + user.displayName;
+    } else {
+      ctx.body = "No such user";
+    }
+  })(ctx, next)
+  
+});
 
 //---Socket Communication-----//
 let io = socketIO(server);
@@ -197,16 +182,11 @@ let io = socketIO(server);
 io.on('connection', socketioJwt.authorize({
   secret: jwtsecret,
   timeout: 15000
-})).on('authenticated', function(socket) {
+})).on('authenticated', function (socket) {
   
-  console.log('Это мое имя из токена: ' + socket.decoded_token.name);
+  console.log('Это мое имя из токена: ' + socket.decoded_token.displayName);
   
   socket.on("clientEvent", (data) => {
     console.log(data);
   })
 });
-   
-  
- 
-
-
