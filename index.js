@@ -10,13 +10,13 @@ const JwtStrategy = require('passport-jwt').Strategy; // авторизация 
 const ExtractJwt = require('passport-jwt').ExtractJwt; // авторизация через JWT
 
 const jwtsecret = "mysecretkey"; // ключ для подписи JWT
-const jwt = require('jsonwebtoken'); // авторизацию по JWT для hhtp
-const socketioJwt = require('socketio-jwt'); // авторизация по JWT для socket.io
+const jwt = require('jsonwebtoken'); // аутентификация  по JWT для hhtp
+const socketioJwt = require('socketio-jwt'); // аутентификация  по JWT для socket.io
 
 const socketIO = require('socket.io');
 
 const mongoose = require('mongoose'); // стандартная прослойка для работы с MongoDB
-const crypto = require('crypto'); // модуль node.js для выполнения различных шифровальных операций, в т.ч для создания хэшей.
+const crypto = require('crypto'); // модуль node.js для выполнения различных шифровальных операций, в т.ч. для создания хэшей.
 
 const app = new Koa();
 const router = new Router();
@@ -24,7 +24,7 @@ app.use(serve('public'));
 app.use(logger());
 app.use(bodyParser());
 
-app.use(passport.initialize()); // сначала паспорт
+app.use(passport.initialize()); // сначала passport
 app.use(router.routes()); // потом маршруты
 const server = app.listen(3000);// запускаем сервер на порту 3000
 
