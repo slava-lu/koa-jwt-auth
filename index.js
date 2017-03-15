@@ -33,15 +33,6 @@ mongoose.set('debug', true);  // Просим mongoose писать все за�
 mongoose.connect('mongodb://localhost/test'); // Подключаемся к базе test на локальной машине.
 mongoose.connection.on('error', console.error);
 
-//---Магия с серилизацией
-
-passport.serializeUser(function (user, done) {
-  done(null, user.email);
-});
-passport.deserializeUser(function (email, done) {
-  User.find({email: email}, done); // callback version checks id validity automatically
-});
-
 //---------Схема и модель пользователя------------------//
 
 const userSchema = new mongoose.Schema({
@@ -114,7 +105,6 @@ const jwtOptions = {
 
 passport.use(new JwtStrategy(jwtOptions, function (payload, done) {
     User.findById(payload.id, (err, user) => {
-      console.log("payload", payload);
       if (err) {
         return done(err)
       }
@@ -144,7 +134,7 @@ router.post('/user', async(ctx, next) => {
 //маршрут для локальной авторизации и создания JWT при успешной авторизации
 
 router.post('/login', async(ctx, next) => {
-  await passport.authenticate('local', function (user) {
+  await passport.authenticate('local', function (err, user) {
     if (user == false) {
       ctx.body = "Login failed";
     } else {
@@ -166,13 +156,14 @@ router.post('/login', async(ctx, next) => {
 
 router.get('/login', async(ctx, next) => {
   
-  await passport.authenticate('jwt', function (user) {
+  await passport.authenticate('jwt', function (err, user) {
     if (user) {
       ctx.body = "hello " + user.displayName;
     } else {
       ctx.body = "No such user";
+      console.log("err", err)
     }
-  })(ctx, next)
+  } )(ctx, next)
   
 });
 

@@ -3,7 +3,7 @@ const handler = () => {
   const socket = io({ transports: ["websocket"] });
   
   //Copy-paste токен сюда. Обычно берется из local storage
-  const jwt = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjU4YzgxYTY4MGMzNTRiMjkzNDQzMGI5YiIsImRpc3BsYXlOYW1lIjoiU2xhdmEiLCJlbWFpbCI6InNsYXZhbEBtYWlsLnJ1IiwiaWF0IjoxNDg5NTA5MTUxfQ.pL0Y4XnKqZzWF4iMDm0xH_Tcon3jYrz76sURGn83Xj8"
+  const jwt = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjU4YzkwNmFiOGEzY2Y2MzEyYzUyNWEwNiIsImRpc3BsYXlOYW1lIjoiU2xhdmEiLCJlbWFpbCI6InNsYXZhbEBtYWlsLnJ1IiwiaWF0IjoxNDg5NTY5NDgzfQ.hl2KVGVUgRA-lfrj0izASTXckY1af203pY9uiwSMqGI"
   
   socket.on('connect', function () {
     socket.emit("clientEvent", "Я еще не отослал свой токен");
