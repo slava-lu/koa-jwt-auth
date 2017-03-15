@@ -28,9 +28,9 @@ app.use(passport.initialize()); // сначала паспорт
 app.use(router.routes()); // потом маршруты
 const server = app.listen(3000);// запускаем сервер на порту 3000
 
-mongoose.Promise = Promise; // Просим mongoose использовать стандартные Промисы
-mongoose.set('debug', true);  // Просим mongoose писать все запросы к базе в консоль. Удобно для отладки кода
-mongoose.connect('mongodb://localhost/test'); // Подключаемся к базе test на локальной машине.
+mongoose.Promise = Promise; // Просим Mongoose использовать стандартные Промисы
+mongoose.set('debug', true);  // Просим Mongoose писать все запросы к базе в консоль. Удобно для отладки кода
+mongoose.connect('mongodb://localhost/test'); // Подключаемся к базе test на локальной машине. Если базы нет, она будет создана автоматически.
 mongoose.connection.on('error', console.error);
 
 //---------Схема и модель пользователя------------------//
@@ -154,7 +154,7 @@ router.post('/login', async(ctx, next) => {
 
 // маршрут для авторизации по токену
 
-router.get('/login', async(ctx, next) => {
+router.get('/custom', async(ctx, next) => {
   
   await passport.authenticate('jwt', function (err, user) {
     if (user) {
