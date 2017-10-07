@@ -30,7 +30,7 @@ const server = app.listen(3000);// запускаем сервер на порт
 
 mongoose.Promise = Promise; // Просим Mongoose использовать стандартные Промисы
 mongoose.set('debug', true);  // Просим Mongoose писать все запросы к базе в консоль. Удобно для отладки кода
-mongoose.connect('mongodb://localhost/test'); // Подключаемся к базе test на локальной машине. Если базы нет, она будет создана автоматически.
+mongoose.connect('mongodb://localhost/test', { useMongoClient: true }); // Подключаемся к базе test на локальной машине. Если базы нет, она будет создана автоматически.
 mongoose.connection.on('error', console.error);
 
 //---------Схема и модель пользователя------------------//
@@ -99,7 +99,7 @@ passport.use(new LocalStrategy({
 // Ждем JWT в Header
 
 const jwtOptions = {
-  jwtFromRequest: ExtractJwt.fromAuthHeader(),
+  jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
   secretOrKey: jwtsecret
 };
 
