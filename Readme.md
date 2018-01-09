@@ -1,13 +1,12 @@
-# Авторизация по JWT для http и WebSockets в Node.js
+# JWT Authentication for http and WebSockets for Node.js
 
+### How to use:
 
-### Использование:
++ Do not forget to start **mongod** on the local PC before launching the node server
 
-+ Перед запуском node сервера не забудьте на локальной машине запустить **mongod**
++ To send http request you may use [Postman](https://www.getpostman.com/)
 
-+ Для отсылки запросов рекомендую использовать приложение [Postman](https://www.getpostman.com/)
-
-+ Создаем пользователя по POST запросу на http://localhost:3000/user. Передаем в теле объект вида
++ To create a new user make a POST request to http://localhost:3000/user with the body:
 ```
 {
 	"displayName": "Slava",
@@ -16,7 +15,7 @@
 }
 ```
 
-+ Авторизуемся и получаем токен в ответе по запросу POST на http://localhost:3000/login. Передаем в теле объект вида
++ Sign in and get a JWT by sending POST request to http://localhost:3000/login with the body:
 
 ```
 {
@@ -25,9 +24,9 @@
 }
 ```
 
-+ Проверяем авторизации по токену по запросу GET на http://localhost:3000/custom. 
-Токен необходимо скопировать из ответа п2 и добавить в Header с ключем Authorization
++ Check authentication via JWT by sending GET request to http://localhost:3000/custom
+You need to copy JWT from the response of the previous request and copy it to the Header with the Authorization key
 ![рисунок](/images/Auth_header.png)
 
-+ Поверяем websocket авторизацию по токену через броузер http://localhost:3000. Токен необходимо скопировать из ответа п2 и добавить переменную jwt в файле public/socketEmitter
- (без префикса JWT )
++ Check websocket JWT auth by launching the browser and going to http://localhost:3000. Before it you need to copy JWT in jwt variable in public/socketEmitter file
+

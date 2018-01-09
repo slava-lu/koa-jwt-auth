@@ -1,22 +1,22 @@
-const Koa = require('koa'); // ядро
-const Router = require('koa-router'); // маршрутизация
-const bodyParser = require('koa-bodyparser'); // парсер для POST запросов
-const serve = require('koa-static'); // модуль, который отдает статические файлы типа index.html из заданной директории
-const logger = require('koa-logger'); // опциональный модуль для логов сетевых запросов. Полезен при разработке.
+const Koa = require('koa'); // core
+const Router = require('koa-router'); // routing
+const bodyParser = require('koa-bodyparser'); // POST parser
+const serve = require('koa-static'); // serves static files like index.html
+const logger = require('koa-logger'); // optional module for logging
 
-const passport = require('koa-passport'); //реализация passport для Koa
-const LocalStrategy = require('passport-local'); //локальная стратегия авторизации
-const JwtStrategy = require('passport-jwt').Strategy; // авторизация через JWT
-const ExtractJwt = require('passport-jwt').ExtractJwt; // авторизация через JWT
+const passport = require('koa-passport'); //passport for Koa
+const LocalStrategy = require('passport-local'); //local Auth Strategy
+const JwtStrategy = require('passport-jwt').Strategy; // Auth via JWT
+const ExtractJwt = require('passport-jwt').ExtractJwt; // Auth via JWT
 
-const jwtsecret = "mysecretkey"; // ключ для подписи JWT
-const jwt = require('jsonwebtoken'); // аутентификация  по JWT для hhtp
-const socketioJwt = require('socketio-jwt'); // аутентификация  по JWT для socket.io
+const jwtsecret = "mysecretkey"; // signing key for JWT
+const jwt = require('jsonwebtoken'); // auth via JWT for hhtp
+const socketioJwt = require('socketio-jwt'); // auth via JWT for socket.io
 
 const socketIO = require('socket.io');
 
-const mongoose = require('mongoose'); // стандартная прослойка для работы с MongoDB
-const crypto = require('crypto'); // модуль node.js для выполнения различных шифровальных операций, в т.ч. для создания хэшей.
+const mongoose = require('mongoose'); // standard module for  MongoDB
+const crypto = require('crypto'); // crypto module for node.js for e.g. creating hashes
 
 const app = new Koa();
 const router = new Router();
@@ -24,23 +24,23 @@ app.use(serve('public'));
 app.use(logger());
 app.use(bodyParser());
 
-app.use(passport.initialize()); // сначала passport
-app.use(router.routes()); // потом маршруты
-const server = app.listen(3000);// запускаем сервер на порту 3000
+app.use(passport.initialize()); // initialize passport first
+app.use(router.routes()); // then routes
+const server = app.listen(3000);// launch server on port  3000
 
-mongoose.Promise = Promise; // Просим Mongoose использовать стандартные Промисы
-mongoose.set('debug', true);  // Просим Mongoose писать все запросы к базе в консоль. Удобно для отладки кода
-mongoose.connect('mongodb://localhost/test'); // Подключаемся к базе test на локальной машине. Если базы нет, она будет создана автоматически.
+mongoose.Promise = Promise; // Ask Mongoose to use standard Promises
+mongoose.set('debug', true);  // Ask Mongoose to log DB request to console
+mongoose.connect('mongodb://localhost/test'); // Connect to local database
 mongoose.connection.on('error', console.error);
 
-//---------Схема и модель пользователя------------------//
+//---------Use Schema and Module  ------------------//
 
 const userSchema = new mongoose.Schema({
   displayName: String,
   email: {
     type: String,
-    required: 'Укажите e-mail',
-    unique: 'Такой e-mail уже существует'
+    required: 'e-mail is required',
+    unique: 'this e-mail already exist'
   },
   passwordHash: String,
   salt: String,
@@ -84,9 +84,9 @@ passport.use(new LocalStrategy({
       if (err) {
         return done(err);
       }
-      
+
       if (!user || !user.checkPassword(password)) {
-        return done(null, false, {message: 'Нет такого пользователя или пароль неверен.'});
+        return done(null, false, {message: 'User does not exist or wrong password.'});
       }
       return done(null, user);
     });
@@ -96,7 +96,7 @@ passport.use(new LocalStrategy({
 
 //----------Passport JWT Strategy--------//
 
-// Ждем JWT в Header
+// Expect JWT in the http header
 
 const jwtOptions = {
   jwtFromRequest: ExtractJwt.fromAuthHeader(),
@@ -119,7 +119,7 @@ passport.use(new JwtStrategy(jwtOptions, function (payload, done) {
 
 //------------Routing---------------//
 
-//маршрут для создания нового пользователя
+// new user route
 
 router.post('/user', async(ctx, next) => {
   try {
@@ -131,31 +131,31 @@ router.post('/user', async(ctx, next) => {
   }
 });
 
-//маршрут для локальной авторизации и создания JWT при успешной авторизации
+// local auth route. Creates JWT is successful
 
 router.post('/login', async(ctx, next) => {
   await passport.authenticate('local', function (err, user) {
     if (user == false) {
       ctx.body = "Login failed";
     } else {
-      //--payload - информация которую мы храним в токене и можем из него получать
+      //--payload - info to put in the JWT
       const payload = {
         id: user.id,
         displayName: user.displayName,
         email: user.email
       };
-      const token = jwt.sign(payload, jwtsecret); //здесь создается JWT
-      
+      const token = jwt.sign(payload, jwtsecret); //JWT is created here
+
       ctx.body = {user: user.displayName, token: 'JWT ' + token};
     }
   })(ctx, next);
-  
+
 });
 
-// маршрут для авторизации по токену
+// JWT auth route
 
 router.get('/custom', async(ctx, next) => {
-  
+
   await passport.authenticate('jwt', function (err, user) {
     if (user) {
       ctx.body = "hello " + user.displayName;
@@ -164,7 +164,7 @@ router.get('/custom', async(ctx, next) => {
       console.log("err", err)
     }
   } )(ctx, next)
-  
+
 });
 
 //---Socket Communication-----//
@@ -174,9 +174,9 @@ io.on('connection', socketioJwt.authorize({
   secret: jwtsecret,
   timeout: 15000
 })).on('authenticated', function (socket) {
-  
-  console.log('Это мое имя из токена: ' + socket.decoded_token.displayName);
-  
+
+  console.log('this is the name from the JWT: ' + socket.decoded_token.displayName);
+
   socket.on("clientEvent", (data) => {
     console.log(data);
   })
